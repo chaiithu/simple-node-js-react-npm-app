@@ -1,31 +1,36 @@
-pipeline {
-    agent {
-        docker {
-            image 'node:6-alpine'
-            args '-p 3000:3000'
-        }
-    }
-     environment {
-            CI = 'true'
-        }
+ pipeline {
+    agent any
     stages {
-        stage('Build') {
+        stage ('scm') {
             steps {
-                sh 'npm install'
+                script {
+                  checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/chaiithu/simple-node-js-react-npm-app.git']])
+                }
             }
         }
-        stage('Test') {
-                    steps {
-                        sh './jenkins/scripts/test.sh'
-                    }
+        stage ('build and tag') {
+            steps {
+                script {
+                    sh'''docker build -t chaithu .
+                         docker tag chaithu chaithuchaithanya/node'''
                 }
-                stage('Deliver') {
-                            steps {
-                                sh './jenkins/scripts/deliver.sh'
-                                input message: 'Finished using the web site? (Click "Proceed" to continue)'
-                                sh './jenkins/scripts/kill.sh'
-                            }
-                        }
-
+            }
+        }
+        stage ('push') {
+            steps {
+                script {
+                 withDockerRegistry(credentialsId: 'docker_cred', url: '') {  
+                       sh'''docker push chaithuchaithanya/node'''
+                }
+            }
+        }
+        }
+        stage ('deploy') {
+            steps {
+                script {
+                    sh'''docker run -d -p 8090:3000 --name poori chaithu'''
+                }
+            }
+        }
     }
 }
